@@ -1,0 +1,61 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[bB]uild/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# IDE settings
+.idea/
+.vscode/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Generated files
+*.log
+*.cache
+*.pid
+
+# NuGet
+packages/
+*.nupkg
+project.lock.json
+
+# Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# Rider
+.idea/
+*.sln.iml
+
+# JetBrains Rider Cache
+.idea/.idea.*
+.idea/modules.xml
+.idea/vcs.xml
+.idea/workspace.xml
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/libraries
+.idea/httpRequests
+.idea/shelf
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
