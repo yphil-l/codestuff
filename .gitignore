@@ -1,0 +1,14 @@
+bin/
+obj/
+*.user
+*.rsuser
+*.suo
+*.userprefs
+*.ide/
+.vscode/
+.idea/
+*.log
+*.cache
+*.pdb
+*.db
+*.DS_Store
