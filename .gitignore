@@ -12,3 +12,10 @@ obj/
 *.pdb
 *.db
 *.DS_Store
+__pycache__/
+*.pyc
+.venv/
+.env
+build/
+dist/
+*.spec
