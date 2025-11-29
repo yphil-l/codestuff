@@ -17,6 +17,7 @@ from .filesystem import (
 )
 from .processes import EncryptedVolumeScanner, ProcessMemoryScanner
 from .registry import RegistryScanner
+from .user_activity import BrowserArtifactScanner, NetworkCacheScanner, WerScanner
 
 
 def build_scanners() -> List[ArtifactScanner]:
@@ -27,11 +28,14 @@ def build_scanners() -> List[ArtifactScanner]:
         USNJournalScanner(),
         TaskSchedulerScanner(),
         ActivitiesTimelineScanner(),
+        BrowserArtifactScanner(),
         RecentJumpListScanner(),
         RecycleBinScanner(),
         ShadowCopyScanner(),
         AlternateDataStreamScanner(),
         ProcessMemoryScanner(),
+        WerScanner(),
+        NetworkCacheScanner(),
         EncryptedVolumeScanner(),
         SpecialLocationsScanner(),
     ]
