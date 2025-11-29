@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from .base import ArtifactScanner
+from .bypass import BypassAnalyzerScanner
 from .event_logs import EventLogScanner
 from .filesystem import (
     ActivitiesTimelineScanner,
@@ -34,4 +35,5 @@ def build_scanners() -> List[ArtifactScanner]:
         ProcessMemoryScanner(),
         EncryptedVolumeScanner(),
         SpecialLocationsScanner(),
+        BypassAnalyzerScanner(),
     ]

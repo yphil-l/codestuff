@@ -91,6 +91,11 @@ Each category below is selectable in the GUI sidebar and covered by an independe
 - **Why**: Cheats and cleaners often reside in temp or user downloads.
 - **Interpretation**: HIGH when suspicious filenames exist within lookback; LOW when clean.
 
+### 3.14 Bypass & Evasion Countermeasures
+- **What**: Dedicated bypass analyzer that correlates spoofed extensions, unicode homoglyph filenames, obfuscated classes, NTFS timestomping, enriched ADS metadata, process hollowing artefacts, and HWID/VM spoofer signatures.
+- **Why**: Evasion suites often combine multiple counter-forensic tricks; surfacing them together with countermeasure metadata accelerates confirmation.
+- **Interpretation**: Individual hits start at MEDIUM/HIGH. Multiple independent techniques in the same session auto-escalate to CRITICAL and tag findings with smoking-gun correlation IDs for reporting.
+
 ## 4. Severity Guide
 | Severity  | Meaning | Examples |
 |-----------|---------|----------|
