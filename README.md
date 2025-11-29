@@ -1,163 +1,121 @@
 # Windows Forensic Scanner – Portable EXE
 
-## 1. What This Does
-The Windows Forensic Scanner is a self-contained Python 3.11+ tool that triages critical Windows artifacts in minutes, highlights persistence and anti-forensic behavior, and outputs neon-themed visual and machine-readable reports. It operates without external dependencies, is built for PyInstaller one-file packaging, and was designed for rapid onsite verification of cheating indicators, tampering, and stealth persistence on Windows 10/11 hosts.
+## 1. Overview
+The portable Windows Forensic Scanner is a self-contained Python 3.11+ toolkit that inspects 20 high-signal artifact families in under five minutes. It highlights persistence, tampering, and anti-forensic moves, then delivers neon-themed HTML plus machine-readable CSV/JSON/TXT reports. The latest build introduces a correlation matrix that chains findings occurring within the same minute, a category-vs-time heatmap, and per-category severity tallies that surface in the CLI, GUI, and every export format.
 
-## 2. Quick Start
-1. **Install Python 3.11+** (standard library only is required).
-2. **Clone / copy this repository** onto the target Windows system.
-3. **Run elevated** (UAC prompt will appear if not already admin):
-   ```powershell
-   python -m portable_scanner
-   ```
-4. **Build standalone EXE (optional)**:
-   ```powershell
-   pyinstaller --noconfirm --onefile --windowed -n forensic_scanner portable_scanner/__main__.py
-   ```
-   The resulting `dist/forensic_scanner.exe` can be copied to USB media and executed without dependencies.
+Key traits:
+- **20 artifact families** spanning event telemetry, registry-based persistence, filesystem residue, process/network memory, encrypted containers, and user-writable stash locations.
+- **Correlation summary** that clusters findings per minute, exposes category heatmaps, and keeps the GUI/CLI timeline synchronized with exports.
+- **PyInstaller-ready** one-file packaging for a USB-deployable `.exe` that carries its own neon GUI.
+- **Graceful degradation** when administrative rights or PowerShell modules are missing (the scanner logs which analyzers fell back to reduced visibility).
 
-CLI-only mode (headless / scripted triage):
+## 2. Quick start (< 5 minute field triage)
+1. **Install Python 3.11+** (the standard library is sufficient).
+2. **Clone or copy** this repository to the target Windows host.
+3. **Launch elevated** from an Administrator PowerShell:
+   ```powershell
+   python -m portable_scanner --nogui --lookback 2 --deep --export-dir C:\Evidence
+   ```
+   - `--nogui` avoids Tk startup, `--lookback 2` keeps the data window tight for faster scans, and `--deep` ensures the Special Locations analyzer sweeps the user profile once.
+4. **Review CLI output** – findings stream first, followed by the correlation timeline and per-category severity tallies.
+5. **Open the HTML report** in `C:\Evidence\forensic_report.html` for a color-coded dashboard with the heatmap and matrix embedded.
+
+> **Tip:** For the fastest path, deselect heavy analyzers (ADS + Special Locations) in the GUI sidebar or omit them with `--categories` in CLI runs. Everything else generally concludes inside 5 minutes on commodity hardware.
+
+## 3. Running the scanner
+### GUI mode
 ```powershell
-python -m portable_scanner --nogui --lookback 6 --deep --export-dir C:\Evidence
+python -m portable_scanner
 ```
+- The sidebar lists all artifact families; toggle sets to scope the run.
+- The right-hand panel now includes a live **correlation stream** that updates in real time as the shared timeline detects chained artifacts.
+- Use **COPY FINDINGS** to push a severity-sorted text summary to the clipboard, or **EXPORT REPORT** to write HTML/CSV/JSON/TXT bundles.
 
-Use the **COPY FINDINGS** button to push a severity-sorted summary into the clipboard for quick paste into case notes.
+### CLI mode
+```powershell
+python -m portable_scanner --nogui --lookback 6 --deep --categories EVENT_LOGS PREFETCH USN
+```
+- CLI output lists each finding, then prints the correlation timeline and category severity tallies.
+- Pair with `--export-dir <path>` to automatically persist all report formats.
 
-## 3. Artifact Categories
-Each category below is selectable in the GUI sidebar and covered by an independent analyzer thread.
+### Administrative & graceful-degradation notes
+- The scanner auto-checks elevation and relaunches itself with `runAs` when possible. Without admin, registry hive loading, shadow copy enumeration, ADS recursion, and some event log queries will downgrade and log the limitation.
+- PowerShell must be accessible on `PATH`. If specific cmdlets are missing, the engine logs "limited" status per analyzer but continues with remaining categories.
+- Deep filesystem recursion honors the `--lookback` window unless `--deep` is toggled, helping you trade fidelity for speed on the fly.
 
-### 3.1 Event Logs
-- **What**: Security, System, Application, Setup, PowerShell, and TaskScheduler logs queried via `Get-WinEvent`.
-- **Why**: Detect clearing events (IDs 1102, 104), account manipulation (4720-4738), time tampering (4616), task registration (106), PowerShell abuse (4103/4104).
-- **Interpretation**: CRITICAL when logs are cleared or EventLog service is stopped; HIGH for time changes or firewall manipulation; MEDIUM for suspicious PowerShell commands.
+## 4. Building the unified portable `.exe`
+1. From an elevated PowerShell prompt:
+   ```powershell
+   python -m pip install --upgrade pip
+   pip install pyinstaller
+   ```
+2. Package the GUI/CLI hybrid into a single executable:
+   ```powershell
+   pyinstaller --noconfirm --onefile --windowed \
+     --name forensic_scanner portable_scanner/__main__.py
+   ```
+3. The binary appears under `dist/forensic_scanner.exe`. Copy it to removable media.
+4. (Optional) Sign the executable and add `--uac-admin` if you want PyInstaller to request elevation automatically when end users double-click the tool.
 
-### 3.2 Registry (Persistence)
-- **What**: Autoruns (Run/RunOnce HKLM/HKCU), Command Processor autoruns, Explorer policies, UserAssist, BAM, Prefetch parameters.
-- **Why**: Registry-based persistence, hiding of UI elements, and traces of execution survive application deletion.
-- **Interpretation**: HIGH when autoruns point to Temp/AppData paths or missing binaries; CRITICAL when Prefetch is disabled or policies block access to evidence locations.
+## 5. Reporting, correlation matrix & exports
+- **HTML** reports now contain severity cards, the chronological timeline, the new correlation timeline, a category-vs-time heatmap, and per-category severity tallies.
+- **CSV** append three extra sections (timeline clusters, heatmap matrix, severity tallies) beneath the raw findings.
+- **JSON** includes a `correlation` object with serialised timeline buckets, heatmap counts, and severity distributions.
+- **TXT / CLI output** prints an ASCII bar chart per severity plus the correlation timeline summary.
+- The **GUI correlation pane** shares the same data structure, so analysts watching a live scan see the same chains that end up in exports.
 
-### 3.3 Prefetch & Amcache
-- **What**: Prefetch folder enumeration and Amcache hive parsing (mounted via temporary HKLM key).
-- **Why**: Demonstrates actual execution history and binaries removed from disk.
-- **Interpretation**: CRITICAL if Prefetch cache empty; HIGH when Amcache references executables missing on disk or located in user-writable folders.
+Use the matrix to:
+1. Spot **burst activity** (multiple categories firing within the same minute).
+2. Confirm **coverage** (which categories contributed evidence during the lookback window).
+3. Prioritise **severity triage** by comparing category tallies to your escalation matrix.
 
-### 3.4 USN Journal
-- **What**: NTFS Operational events (IDs 142/98/2003/2045) to catch journal deletion, truncation, and mass deletes.
-- **Why**: Journal clearing is a top-tier anti-forensic action and often paired with cheat cleanup.
-- **Interpretation**: CRITICAL for Event 142 (journal deleted); HIGH for fsutil delete commands or truncations.
+## 6. Severity grading guidance
+| Severity | Meaning | Typical cues |
+|----------|---------|--------------|
+| **CRITICAL** | Active tampering or clear cheat deployment. | Security/Application log clears, USN 142 deletions, locked BitLocker volumes with no disclosure, Prefetch disabled, Command lines with encoded payloads. |
+| **HIGH** | Strong persistence/cleanup signal that needs immediate escalation. | Autoruns from `%TEMP%`, scheduled cleanup tasks, missing-on-disk binaries referenced by Prefetch/Amcache, ADS payloads >10 KB, multiple remote sockets from high-risk processes. |
+| **MEDIUM** | Supporting context that frames intent and timeline. | Recent links into suspicious downloads, ActivitiesCache rows referencing cheat keywords, alternate data streams with benign names, tasks modified inside lookback. |
+| **LOW** | Baseline telemetry proving coverage. | Successful logons, presence/absence of shadow copies, clean process snapshots. |
 
-### 3.5 Task Scheduler
-- **What**: XML definitions under `C:\Windows\System32\Tasks` inspected for encoded PowerShell, cleanup commands, or recent modifications.
-- **Why**: Scheduled tasks are a common persistence & cleanup vector.
-- **Interpretation**: HIGH when commands reference PowerShell `-EncodedCommand`, `clean`, `del`, or run from Temp; MEDIUM if the XML file changed inside the lookback window.
+Pair the severity label with the correlation timeline: CRITICAL+HIGH events within the same minute usually justify immediate containment.
 
-### 3.6 ActivitiesCache Timeline
-- **What**: `%LOCALAPPDATA%\ConnectedDevicesPlatform\*\ActivitiesCache.db` (copied & queried via SQLite) for timeline reconstruction.
-- **Why**: Ties together downloads, archives, and executables for narrative context.
-- **Interpretation**: MEDIUM/HIGH when activity rows reference suspicious app IDs or cheat keywords during the session window.
+## 7. Artifact coverage (20 categories)
+| # | Artifact family | What we interrogate | Severity cues | Counter-bypass notes |
+|---|-----------------|---------------------|---------------|----------------------|
+| 1 | **Security Event Log** | IDs 1102/4624/4625/4720-4738 via `Get-WinEvent`. | CRITICAL when 1102 or EventLog service stopped; HIGH for bulk 4625 failures/time tampering. | Watch for EventLog service disabled or channels cleared — the scanner alerts when the service is down. |
+| 2 | **System Event Log** | IDs 104/7034/7040/7045 + service mutations. | HIGH for new/modified services, CRITICAL for log clears. | Attackers sometimes disable the Windows Event Log service after tampering; use the CLI notice to validate. |
+| 3 | **Application & Setup Logs** | Installer/USN-related events plus crash telemetry. | CRITICAL for USN delete (3079); MEDIUM for repeated crashes tied to cheat loaders. | If Application logging is quiet, align with Prefetch/Amcache — absence plus Prefetch empty indicates cleanup. |
+| 4 | **Task Scheduler Operational Log** | IDs 106/129/140 on `Microsoft-Windows-TaskScheduler/Operational`. | HIGH for rapid task registration or encoded commands. | Clearing the operational log still leaves XML artifacts; cross-check row 12 below. |
+| 5 | **PowerShell Operational Log** | IDs 4103-4106 with full script blocks. | HIGH when encoded/obfuscated commands trigger; MEDIUM for benign admin tooling. | If attackers disable the log, Prefetch/Amcache still record `powershell.exe` launches; correlation exposes the gap. |
+| 6 | **Autorun Keys** | `HKLM/HKCU Run*`, `RunOnce`, and Command Processor `Autorun`. | HIGH when pointing to `%TEMP%` or missing binaries; CRITICAL for high-entropy names plus keyword hits. | Attackers try to strip file paths after execution; Amcache references help prove prior presence. |
+| 7 | **Explorer Policies & Prefetch Parameters** | Policies hiding drives/UIs, `EnablePrefetcher` toggles. | CRITICAL when Prefetch disabled; HIGH when policies hide shell features. | Even if the registry value is deleted post-scan, USN/Prefetch gaps expose the tamper. |
+| 8 | **Execution Activity (UserAssist & BAM)** | UserAssist ROT13 paths + BAM SID-scoped executions. | HIGH when keywords hit in decoded entries; MEDIUM for suspicious but known admin tools. | Clearing BAM requires SYSTEM; if both BAM and UserAssist are empty, look for Event Log clears in the same minute. |
+| 9 | **Prefetch Cache** | `%SystemRoot%\Prefetch\*.pf` presence and recent hits. | CRITICAL when directory is empty/missing; MEDIUM when high-risk binaries show recent access. | Attackers delete Prefetch, but the scanner flags both emptiness and folder removal instantly. |
+| 10 | **Amcache Hive** | Temporary HKLM mount to parse `Root\File` entries. | HIGH when Amcache references files missing on disk; MEDIUM for keyword hits on surviving binaries. | Hive load failures are logged; rerun as admin or copy the hive offline if EDR blocks access. |
+| 11 | **USN Journal** | `Microsoft-Windows-Ntfs/Operational` IDs 142/98/2003/2045. | CRITICAL for journal deletion, HIGH for truncation or `fsutil deletejournal`. | Attackers may stop the NTFS log — correlate with Recycle Bin entries to show intent. |
+| 12 | **Scheduled Task Definitions** | XML under `C:\Windows\System32\Tasks`. | HIGH when tasks reference encoded commands/user-writable binaries; MEDIUM for recent modifications. | Even if the Task Scheduler log is missing, the XML timestamps remain — compare with the correlation matrix. |
+| 13 | **Activities Timeline** | `%LOCALAPPDATA%\ConnectedDevicesPlatform\*\ActivitiesCache.db`. | MEDIUM/HIGH when activity text references cheat archives/executables. | If the database is locked, the scanner copies it; anti-forensic truncation still leaves USN gaps. |
+| 14 | **Recent & Jump Lists** | `%APPDATA%\Microsoft\Windows\Recent\*.lnk` resolved via COM. | MEDIUM for shortcuts into `%TEMP%`/Downloads; HIGH if pointing to deleted executables. | Clearing Recent Items requires extra manual steps — combine with Recycle Bin metadata to prove intent. |
+| 15 | **Recycle Bin Metadata** | `$Recycle.Bin\<SID>\$I*` headers. | HIGH for executables/scripts deleted minutes before collection; MEDIUM for benign file types. | Attackers often forget to wipe both `$I` and `$R` pairs — the scanner parses metadata even if payloads gone. |
+| 16 | **Volume Shadow Copies** | `vssadmin list shadows` parsing. | HIGH when copies created/removed within lookback; LOW if none exist. | If `vssadmin` is blocked, run the scanner from an elevated PowerShell — failures are logged in the report. |
+| 17 | **Alternate Data Streams** | Recursive `Get-ChildItem -Stream` across user/temp folders. | HIGH for ADS larger than 10 KB or keyword hits. | ADS enumeration requires admin; without it, rely on Special Locations + Prefetch overlap to expose hidden payloads. |
+| 18 | **Special Artifact Locations** | `%TEMP%`, `%LOCALAPPDATA%`, `%USERPROFILE%\Downloads/Desktop`. | HIGH when suspicious binaries exist within lookback; LOW when clean. | Deep mode widens recursion; if the folder was wiped, USN + Recent link correlations still highlight the removal. |
+| 19 | **Process & Network Snapshot** | `Get-CimInstance Win32_Process` + `Get-NetTCPConnection` + module lists. | CRITICAL for encoded/obfuscated commands, HIGH for missing-on-disk executables, MEDIUM for high-risk binary fan-out. | If `Get-NetTCPConnection` is blocked, only the process heuristics run; exports call out the limitation. |
+| 20 | **Encrypted Volume Indicators** | `manage-bde -status`, `Get-BitLockerVolume`, and VeraCrypt/TrueCrypt process sweeps. | CRITICAL when locked BitLocker volumes or container tools are running; MEDIUM when protection merely enabled. | Attackers may stop BitLocker services; correlate with process list + Event Logs to prove tampering. |
 
-### 3.7 Recent / Jump Lists
-- **What**: `%APPDATA%\Microsoft\Windows\Recent\*.lnk` resolved via COM; metadata for Automatic Destinations.
-- **Why**: Identifies recently accessed files, even when originals are deleted.
-- **Interpretation**: MEDIUM when shortcuts point to Temp downloads or deleted executables; LOW when benign.
+## 8. Counter-bypass & mitigation playbook
+- **Correlation-first triage:** Use the new per-minute clusters to show juries exactly when a cheat archive was downloaded, executed, and deleted. Export CSV/JSON to feed SIEM cases or share with other responders.
+- **Evidence continuity:** Even when Event Logs are cleared, Prefetch + Amcache + UserAssist often remain. The severity tallies show which categories still produced data, guiding re-collection (e.g., mount Volume Shadow Copies when live residue is gone).
+- **Admin gaps:** If an analyzer reports "limited" access, rerun elevated or execute from a trusted live response account. Every limitation is written to the log view and the HTML report footer for defensibility.
 
-### 3.8 Recycle Bin
-- **What**: `$Recycle.Bin\<SID>\$I*` metadata parsed to original path, deletion time, and size.
-- **Why**: Captures last-minute cleanup attempts; correlates with USN deletions.
-- **Interpretation**: HIGH for executable/script deletions minutes before review; MEDIUM otherwise.
-
-### 3.9 Volume Shadow Copies (VSS)
-- **What**: `vssadmin list shadows` parsing, detection of recent shadow copy manipulation.
-- **Why**: Shadow copies retain sanitized evidence; recent creation or removal is notable.
-- **Interpretation**: HIGH when a shadow copy is created/removed during lookback; LOW if none exist.
-
-### 3.10 Alternate Data Streams (ADS)
-- **What**: PowerShell `Get-ChildItem -Stream` across user & temp directories for ADS > 10 KB.
-- **Why**: ADS hides payloads inside benign files.
-- **Interpretation**: HIGH when ADS > 10 KB or matches cheat keywords; MEDIUM for smaller streams.
-
-### 3.11 Process & Memory Snapshot
-- **What**: `Get-CimInstance Win32_Process`, `Get-NetTCPConnection`, and module lists for suspicious processes.
-- **Why**: Detects processes running from Temp/AppData, missing binaries, encoded PowerShell, unusual network fan-out, or injected modules.
-- **Interpretation**: CRITICAL for obfuscated commands/injection, HIGH for missing-on-disk executables or remote Temp processes, MEDIUM for high-risk binaries with benign paths.
-
-### 3.12 Encrypted Volumes
-- **What**: `manage-bde -status` + `Get-BitLockerVolume` + process scan for VeraCrypt/TrueCrypt.
-- **Why**: Encrypted containers obstruct evidence; detection informs escalation.
-- **Interpretation**: CRITICAL if BitLocker volumes are locked or container processes run without disclosure; MEDIUM if protection is merely enabled.
-
-### 3.13 Special Artifact Locations
-- **What**: `%TEMP%`, `%LOCALAPPDATA%\Temp`, `%USERPROFILE%\Downloads`, `%USERPROFILE%\Desktop` recursion for recent executables, DLLs, scripts, archives.
-- **Why**: Cheats and cleaners often reside in temp or user downloads.
-- **Interpretation**: HIGH when suspicious filenames exist within lookback; LOW when clean.
-
-## 4. Severity Guide
-| Severity  | Meaning | Examples |
-|-----------|---------|----------|
-| **CRITICAL** | Immediate evidence of tampering or active cheat | Log clearing (1102/104), USN delete (142), locked BitLocker volume, Prefetch disabled |
-| **HIGH** | Strong indicator of persistence or cleanup | Autorun from Temp, scheduled cleanup tasks, executable missing but Amcache entry present |
-| **MEDIUM** | Supporting evidence needing correlation | Suspicious Recent link, PowerShell command history, unusual ADS |
-| **LOW** | Contextual or baseline information | Normal logon event, absence of shadow copies |
-
-## 5. Interpreting Findings
-1. **Correlate timestamps** – the timeline view ties Event Logs, Prefetch, ActivitiesCache, and USN entries to reconstruct intent.
-2. **Look for gaps** – Prefetch entries without UserAssist/BAM or vice versa suggest deliberate cleanup.
-3. **Cross-reference artifacts** – e.g., Recycle Bin + USN + Recent link showing the same executable equals strong attribution.
-4. **Beware false positives** – enterprise agents may run from `%ProgramData%` or `%LOCALAPPDATA%`; use the severity filter to focus on CRITICAL/HIGH first.
-
-## 6. Command-Line Options
-| Option | Description |
-|--------|-------------|
-| `--nogui` | Run full scan in headless mode (stdout + optional exports). |
-| `--lookback <hours>` | Window for “recent” modifications (default 4). |
-| `--deep` | Enables exhaustive recursion in temp/download folders. |
-| `--categories <names>` | Subset of categories (use enum names, e.g., `EVENT_LOGS PREFETCH`). |
-| `--export-dir <path>` | Folder for HTML/CSV/JSON/TXT outputs (CLI). |
-| `--auto` | In GUI mode, immediately start scanning after launch. |
-
-## 7. Known Limitations
-- Requires Windows 10/11 with PowerShell and administrative rights for full coverage.
-- ActivitiesCache.db may be locked when Timeline is active; the scanner copies the file but extremely busy systems may still block access.
-- Alternate Data Stream enumeration is constrained to user/temp paths for performance; enable `--deep` for broader coverage.
-- Live memory string carving is out-of-scope for a dependency-free tool; module path inspection is used instead.
-- Headless mode still depends on PowerShell for event, ADS, and registry hive parsing.
-
-## 8. Troubleshooting
+## 9. Troubleshooting & tips
 | Issue | Resolution |
 |-------|------------|
-| **UAC prompt loops** | Launch from elevated PowerShell (`Start-Process python -Verb runAs`). |
-| **“PowerShell not found”** | Ensure `%SystemRoot%\System32\WindowsPowerShell\v1.0` is on PATH. |
-| **Access denied on registry or event logs** | Confirm the tool is running as administrator; some EDR tools block hive loading. |
-| **Slow scans** | Disable deep scan, reduce lookback, or deselect heavy categories (ADS, Special Locations). |
-| **PyInstaller antivirus flag** | Rebuild with `--uac-admin --clean` and sign the EXE when distributing. |
-
-## 9. Forensic Notes for Analysts
-- **Primary hot spots**: `C:\Windows\Prefetch`, `C:\Windows\AppCompat\Programs\Amcache.hve`, `$Extend\$UsnJrnl`, `%APPDATA%\Microsoft\Windows\Recent`, `$Recycle.Bin`, `%LOCALAPPDATA%\ConnectedDevicesPlatform`.
-- **Registry triage map**:
-  - Autoruns: `HKLM/HKCU\Software\Microsoft\Windows\CurrentVersion\Run*`
-  - Command Processor: `HKLM/HKCU\Software\Microsoft\Command Processor\Autorun`
-  - UserAssist: `HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\UserAssist`
-  - BAM: `HKLM\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings`
-  - Prefetcher switch: `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters`
-- **Common evasion patterns**:
-  - Prefetch/Event/USN clearing before screenshares.
-  - Executables renamed to innocuous extensions (watch for Prefetch entries referencing non-existent files).
-  - ADS payloads (`file.png:hidden.exe`) surfaced via the ADS analyzer.
-  - Cleanup scheduled tasks firing at logon/AnyDesk start.
-  - Memory-only loaders indicated by processes running from `%TEMP%` with missing on-disk images.
-- **Suggested live triage order**: EventLog service status → Prefetch/Amcache sanity → USN journal health → Autoruns/TaskCache → Temp/Downloads quick scan → Process snapshot/network ports → VSS presence.
-
-## 10. Severity Interpretation Examples
-- **CRITICAL**: Security log cleared (ID 1102) + USN journal deletion (ID 142) minutes before review; Prefetch folder empty; locked BitLocker volume with user refusal.
-- **HIGH**: Autorun pointing to `%LOCALAPPDATA%\Temp\cheat.exe`; scheduled task with `PowerShell -EncodedCommand`; Recycle Bin entry for `injector.dll` deleted moments before scan.
-- **MEDIUM**: Recent shortcut to `%USERPROFILE%\Downloads\mod.jar`; ADS of 12 KB attached to a PNG; Activity timeline showing archive→exe double-click flow.
-- **LOW**: Normal logon events, lack of VSS snapshots, or benign downloads without execution evidence.
-
-## 11. “Schnellüberblick” Cheat Sheet
-- **Top files**: Prefetch (`C:\Windows\Prefetch`), Amcache, USN Journal, Event Logs, Registry hives, Task Scheduler XML, ActivitiesCache.db, Recent links, Recycle Bin, VSS, ADS.
-- **Registry watch list**: `Run`, `RunOnce`, `TaskCache`, `UserAssist`, `BAM`, `ComDlg32`, `PrefetchParameters`, `Command Processor`, `UAC bypass keys` (`HKCU\Software\Classes\mscfile\shell\open\command`).
-- **Common anti-forensic moves**: Spoofed extensions, ADS payloads, log/Prefetch clearing, randomized filenames, scheduled cleanup tasks, encrypted containers, ACL tampering.
-- **Memory/process cues**: Paths to deleted files, encoded command lines, modules from Temp, multiple remote sockets, suspicious strings like `.jar`, `.dll`, `http://` in process info.
+| **UAC prompt loops** | Launch from an elevated PowerShell (`Start-Process python -Verb runAs`). |
+| **PowerShell missing** | Ensure `%SystemRoot%\System32\WindowsPowerShell\v1.0` is on `PATH`; Windows 10/11 ship it by default. |
+| **Registry/Event Log access denied** | Confirm admin rights; some EDRs block hive loading — copy the hive to `%TEMP%` and rerun that analyzer if needed. |
+| **Slow scans** | Reduce `--lookback`, uncheck ADS/Special Locations, or run CLI mode for fewer GUI updates. |
+| **PyInstaller antivirus alerts** | Rebuild on a clean host, sign the binary, and consider toggling `--clean` plus `--uac-admin`. |
 
 ---
-**Reminder:** Always capture findings (HTML/CSV/JSON/TXT) for chain-of-custody, and rerun with a read-only shadow copy if live artifacts appear wiped.
+**Reminder:** Always export findings (HTML/CSV/JSON/TXT) for chain-of-custody. Use the correlation matrix and severity tallies to brief stakeholders quickly, then dig into raw evidence with your preferred triage toolkit.

@@ -6,9 +6,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Sequence
 
+from .analytics import build_correlation_summary
 from .context import ScanContext
 from .engine import ScanEngine
-from .models import ArtifactCategory, ScanOptions, ScanSummary
+from .models import ArtifactCategory, ScanOptions, ScanSummary, Severity
 from .reporting import export_reports
 from .scanners import build_scanners
 from .utils import ensure_admin
@@ -73,6 +74,31 @@ def display_cli(summary: ScanSummary) -> None:
             f"[{finding.severity.value}] {finding.category.value} | {finding.title}\n"
             f"    Location: {finding.location}\n    Time: {finding.timestamp.isoformat()}\n    {finding.description}\n"
         )
+    correlation = build_correlation_summary(summary.findings)
+    print("=== Correlation Timeline (per-minute) ===")
+    if correlation.is_empty:
+        print("  (no overlapping artifacts detected)")
+    else:
+        for cluster in correlation.top_clusters():
+            categories = ", ".join(
+                f"{breakdown.category.value}({breakdown.count})"
+                for breakdown in sorted(
+                    cluster.category_breakdown.values(), key=lambda item: item.category.value
+                )
+            )
+            print(f"  - {cluster.minute.strftime('%Y-%m-%d %H:%M')}Z :: {categories}")
+    print("\n=== Per-Category Severity Tallies ===")
+    for category in ArtifactCategory:
+        counts = correlation.category_severity.get(category, {})
+        total = sum(counts.values()) if counts else 0
+        if total == 0:
+            continue
+        severity_bits = ", ".join(
+            f"{severity.value}:{counts.get(severity, 0)}"
+            for severity in Severity
+            if counts.get(severity, 0)
+        ) or "0"
+        print(f"  - {category.value}: {severity_bits} (total {total})")
 
 
 if __name__ == "__main__":  # pragma: no cover

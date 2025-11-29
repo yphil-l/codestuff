@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from tkinter import filedialog, messagebox, scrolledtext, ttk
 
+from .analytics import build_correlation_summary
 from .context import ScanContext
 from .engine import ScanEngine
 from .models import ArtifactCategory, Finding, ScanOptions, ScanSummary, Severity
@@ -35,6 +36,7 @@ class ForensicScannerApp(tk.Tk):
         self.progress_queue: queue.Queue[float] = queue.Queue()
         self._current_context: ScanContext | None = None
         self._findings: list[Finding] = []
+        self._correlation_summary = None
         self._scan_thread: threading.Thread | None = None
         self._running = False
 
@@ -108,6 +110,25 @@ class ForensicScannerApp(tk.Tk):
         self.tree.pack(fill=tk.BOTH, expand=True)
         self.tree.bind("<Double-1>", self._show_finding_detail)
 
+        tk.Label(
+            right_panel,
+            text="Correlation (per-minute)",
+            fg="#ff00ff",
+            bg="#050710",
+            font=("Consolas", 12, "bold"),
+        ).pack(anchor="w", pady=(12, 4))
+        self.correlation_view = scrolledtext.ScrolledText(
+            right_panel,
+            fg="#c4ffe8",
+            bg="#050b1e",
+            insertbackground="#00ff88",
+            font=("Consolas", 10),
+            height=10,
+            wrap=tk.WORD,
+        )
+        self.correlation_view.pack(fill=tk.BOTH, expand=False)
+        self.correlation_view.configure(state=tk.DISABLED)
+
         bottom = tk.Frame(self, bg="#050710")
         bottom.grid(row=2, column=0, columnspan=3, sticky="ew", padx=12, pady=(0, 12))
         self.progress = ttk.Progressbar(bottom, orient=tk.HORIZONTAL, mode="determinate")
@@ -125,6 +146,7 @@ class ForensicScannerApp(tk.Tk):
         self.status_var = tk.StringVar(value="Idle")
         status_label = tk.Label(bottom, textvariable=self.status_var, fg="#c4ffe8", bg="#050710", font=("Consolas", 11))
         status_label.pack(anchor="w", pady=4)
+        self._update_correlation_panel()
 
     def _toggle_all(self) -> None:
         value = self.all_var.get()
@@ -145,6 +167,7 @@ class ForensicScannerApp(tk.Tk):
         self._findings.clear()
         self.tree.delete(*self.tree.get_children())
         self.output.delete("1.0", tk.END)
+        self._update_correlation_panel()
         context = ScanContext(
             options=self.options,
             started_at=datetime.now(timezone.utc),
@@ -188,6 +211,7 @@ class ForensicScannerApp(tk.Tk):
         self.tree.delete(*self.tree.get_children())
         self._findings.clear()
         self.status_var.set("Idle")
+        self._update_correlation_panel()
 
     def copy_findings(self) -> None:
         if not self._findings:
@@ -208,6 +232,7 @@ class ForensicScannerApp(tk.Tk):
                 self.output.see(tk.END)
         except queue.Empty:
             pass
+        updated = False
         try:
             while True:
                 finding = self.finding_queue.get_nowait()
@@ -223,8 +248,11 @@ class ForensicScannerApp(tk.Tk):
                     ),
                 )
                 self.status_var.set(self._build_status_summary())
+                updated = True
         except queue.Empty:
             pass
+        if updated:
+            self._update_correlation_panel()
         try:
             while True:
                 progress = self.progress_queue.get_nowait()
@@ -234,6 +262,26 @@ class ForensicScannerApp(tk.Tk):
         except queue.Empty:
             pass
         self.after(100, self._drain_queues)
+
+    def _update_correlation_panel(self) -> None:
+        summary = build_correlation_summary(self._findings)
+        self._correlation_summary = summary
+        if summary.is_empty:
+            lines = ["No correlated artifacts yet."]
+        else:
+            lines = []
+            for cluster in summary.top_clusters():
+                categories = ", ".join(
+                    f"{breakdown.category.value}({breakdown.count})"
+                    for breakdown in sorted(
+                        cluster.category_breakdown.values(), key=lambda item: item.category.value
+                    )
+                )
+                lines.append(f"{cluster.minute.strftime('%H:%M')}Z :: {categories}")
+        self.correlation_view.configure(state=tk.NORMAL)
+        self.correlation_view.delete("1.0", tk.END)
+        self.correlation_view.insert(tk.END, "\n".join(lines))
+        self.correlation_view.configure(state=tk.DISABLED)
 
     def _build_status_summary(self) -> str:
         counts = {severity: 0 for severity in Severity}
