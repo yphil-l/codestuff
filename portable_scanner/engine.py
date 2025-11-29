@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Dict, Iterable, List, Sequence
 
 from .context import ScanContext
+from .correlation import CorrelationEngine
 from .models import ArtifactCategory, Finding, ScanSummary
 from .scanners.base import ArtifactScanner
 
@@ -62,6 +63,11 @@ class ScanEngine:
 
         if on_progress:
             on_progress(1.0)
+        
+        # Apply correlation analysis
+        correlation_engine = CorrelationEngine(summary)
+        correlation_engine.correlate()
+        
         return summary
 
     def _run_scanner(

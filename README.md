@@ -1,7 +1,7 @@
 # Windows Forensic Scanner – Portable EXE
 
 ## 1. What This Does
-The Windows Forensic Scanner is a self-contained Python 3.11+ tool that triages critical Windows artifacts in minutes, highlights persistence and anti-forensic behavior, and outputs neon-themed visual and machine-readable reports. It operates without external dependencies, is built for PyInstaller one-file packaging, and was designed for rapid onsite verification of cheating indicators, tampering, and stealth persistence on Windows 10/11 hosts.
+The Windows Forensic Scanner is a self-contained Python 3.11+ tool that triages critical Windows artifacts in minutes, highlights persistence and anti-forensic behavior, and outputs neon-themed visual and machine-readable reports with advanced correlation analytics. It operates without external dependencies, is built for PyInstaller one-file packaging, and was designed for rapid onsite verification of cheating indicators, tampering, and stealth persistence on Windows 10/11 hosts. The v2.0 correlation layer automatically reconstructs timelines, links evidence chains (download → execution → deletion), detects clearing cascades, computes a 0–100 risk score, and surfaces smoking-gun indicators.
 
 ## 2. Quick Start
 1. **Install Python 3.11+** (standard library only is required).
@@ -10,11 +10,16 @@ The Windows Forensic Scanner is a self-contained Python 3.11+ tool that triages 
    ```powershell
    python -m portable_scanner
    ```
-4. **Build standalone EXE (optional)**:
-   ```powershell
-   pyinstaller --noconfirm --onefile --windowed -n forensic_scanner portable_scanner/__main__.py
-   ```
-   The resulting `dist/forensic_scanner.exe` can be copied to USB media and executed without dependencies.
+4. **Build standalone EXE**:
+   - On Windows:
+     ```powershell
+     scripts\build_exe.bat
+     ```
+   - On Linux/Mac/WSL:
+     ```bash
+     ./scripts/build_exe.sh
+     ```
+   The resulting `dist/ForensicScanner.exe` can be copied to USB media and executed without dependencies, requesting UAC elevation automatically.
 
 CLI-only mode (headless / scripted triage):
 ```powershell
@@ -158,6 +163,43 @@ Each category below is selectable in the GUI sidebar and covered by an independe
 - **Registry watch list**: `Run`, `RunOnce`, `TaskCache`, `UserAssist`, `BAM`, `ComDlg32`, `PrefetchParameters`, `Command Processor`, `UAC bypass keys` (`HKCU\Software\Classes\mscfile\shell\open\command`).
 - **Common anti-forensic moves**: Spoofed extensions, ADS payloads, log/Prefetch clearing, randomized filenames, scheduled cleanup tasks, encrypted containers, ACL tampering.
 - **Memory/process cues**: Paths to deleted files, encoded command lines, modules from Temp, multiple remote sockets, suspicious strings like `.jar`, `.dll`, `http://` in process info.
+
+## 12. Correlation & Neon Reporting Layer
+The revamped correlation engine processes the full set of findings before exports are generated and injects metadata back into each record (`correlation_id`, confidence percentage, and smoking-gun flags). Key deliverables:
+- **Risk Gauge (0–100)** – summarizes severity, chain density, and counter-bypass score; mirrored in the GUI, CLI, and HTML.
+- **Clearing-pattern detector** – automatically calls out Event Log + USN cascades, Prefetch tampering paired with scheduled cleaners, and rapid download→execution→deletion loops.
+- **Evidence-chain visualizer** – renders neon cards in the HTML report and Tk GUI that link subjects (e.g., `cheat.exe`) across download, execution, deletion, USB, or persistence events. Each chain carries a confidence tier (HIGH/MEDIUM) and triggers smoking-gun badges when all three phases occur.
+- **Counter-bypass matrix** – tracks anti-forensic categories (logs, Prefetch, USN, scheduled cleaners, ADS, VSS, encryption) and feeds the bypass score shown in exports and the CLI.
+- **Minecraft / gaming highlight cards** – surfaces artifacts mentioning Minecraft clients, Fabric/Forge loaders, Badlion/Lunar, etc., so competitive investigations can cite “smoking gun” visuals in reports.
+- **Ban-evasion summary** – aggregates references to `spoof`, `clean`, `ban`, `hwid`, `macro`, etc. and displays them in every export.
+- **Enriched exports** – HTML, CSV, JSON, and TXT outputs now include correlation metadata, bypass metrics, evidence chains, and highlight counts. The HTML report contains descriptive screenshots (risk gauge, matrix, neon table) inlined via CSS so no external assets are required when handed to counsel.
+
+## 13. CLI + GUI Neon Views
+- **CLI (headless mode)** now streams live findings with ANSI neon colors, a rolling risk score, and immediate call-outs for smoking guns. When the scan ends it prints the bypass summary, risk progression milestones, and grouped findings per severity.
+- **GUI** ships with a right-hand correlation panel: a live risk score badge, a textual summary of clearing patterns and ban-evasion hits, and the findings list now shows correlation IDs plus 💥 badges for smoking-gun detections.
+- Both interfaces pull from the same correlation data as the HTML report, so analysts can trust the numbers regardless of workflow.
+
+## 14. One-File PyInstaller Build
+The project contains a ready-to-run PyInstaller spec (`forensic_scanner.spec`) and helper scripts under `scripts/`:
+- `scripts/build_exe.bat` – Windows batch helper that wipes previous builds and produces `dist\ForensicScanner.exe` with `--uac-admin` enabled.
+- `scripts/build_exe.sh` – cross-platform helper for WSL/macOS/Linux build hosts.
+Run either script from the repo root to obtain a single-file EXE with the bundled neon reporting assets. The `.spec` is tracked (removed from `.gitignore`) so customizations can be versioned.
+
+## 15. Smoking-Gun Indicators & Bypass Examples
+Use the following cues when prioritizing interviews:
+- **Smoking guns (auto-flagged):**
+  - Event Log/USN deletions (1102/142) minutes apart.
+  - Prefetch disabled combined with scheduled cleaners or encoded PowerShell tasks.
+  - USB insertion immediately followed by execution from removable media.
+  - References to injectors/cheat loaders in Amcache, Prefetch, ADS, or Recycle Bin.
+  - Ban-evasion keywords (spoof, hwid, macro) tied to high-severity findings.
+- **Bypass examples surfaced in the matrix:**
+  - Event Log service stopped + Security log cleared.
+  - `fsutil usn deletejournal` or NTFS Event 3079.
+  - Wiped Prefetch folder / Prefetch disabled registry keys.
+  - VSS deletions around the review timeframe.
+  - ADS payloads >10 KB in Downloads/Temp.
+  - Locked BitLocker or active VeraCrypt container processes during a scan.
 
 ---
 **Reminder:** Always capture findings (HTML/CSV/JSON/TXT) for chain-of-custody, and rerun with a read-only shadow copy if live artifacts appear wiped.

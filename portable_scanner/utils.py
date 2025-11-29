@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.resources as importlib_resources
 import math
 import os
 import platform
@@ -109,3 +110,10 @@ def safe_path(root: Optional[str], *segments: str) -> Path:
 
 def ensure_directory(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
+
+
+def load_asset_text(name: str) -> str:
+    try:
+        return importlib_resources.files("portable_scanner.assets").joinpath(name).read_text(encoding="utf-8")
+    except (FileNotFoundError, OSError):
+        return ""
