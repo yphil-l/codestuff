@@ -1,0 +1,255 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  background: linear-gradient(135deg, #0a0e27 0%, #16213e 100%);
+  color: #e0fce9;
+  font-family: 'Consolas', 'Courier New', monospace;
+  padding: 20px;
+  line-height: 1.6;
+}
+.container {
+  max-width: 1800px;
+  margin: 0 auto;
+}
+h1 {
+  color: #00ff88;
+  text-align: center;
+  font-size: 2.5em;
+  text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+  margin-bottom: 10px;
+}
+h2 {
+  color: #ff00ff;
+  margin: 30px 0 15px;
+  font-size: 1.8em;
+  text-shadow: 0 0 15px rgba(255, 0, 255, 0.4);
+}
+.system-info,
+section {
+  background: rgba(16, 21, 51, 0.6);
+  padding: 25px;
+  border-radius: 10px;
+  margin: 25px 0;
+  border: 1px solid #2a3555;
+}
+.system-info {
+  border-color: #ff00ff;
+}
+.severity-overview {
+  display: flex;
+  gap: 15px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+.sev-card {
+  flex: 1;
+  min-width: 150px;
+  padding: 20px;
+  border-radius: 10px;
+  background: rgba(16, 21, 51, 0.8);
+  text-align: center;
+  border: 2px solid;
+}
+.sev-card span {
+  display: block;
+  font-size: 0.9em;
+  margin-bottom: 5px;
+}
+.sev-card strong {
+  font-size: 2em;
+  color: #00ff88;
+}
+.sev-card.critical {
+  border-color: #ff0066;
+}
+.sev-card.high {
+  border-color: #ff7b00;
+}
+.sev-card.medium {
+  border-color: #f6c344;
+}
+.sev-card.low {
+  border-color: #7a8ea0;
+}
+.gauge-container {
+  display: flex;
+  justify-content: center;
+  margin: 30px 0;
+}
+.gauge-svg {
+  width: 300px;
+  height: 180px;
+}
+.gauge-text {
+  font-size: 36px;
+  font-weight: bold;
+  fill: #00ff88;
+}
+.gauge-label {
+  font-size: 14px;
+  fill: #c4ffe8;
+}
+.clearing-patterns {
+  border: 2px solid #ff0066;
+}
+.pattern-list {
+  list-style: none;
+  padding-left: 0;
+}
+.pattern-item {
+  padding: 10px;
+  margin: 8px 0;
+  background: rgba(255, 0, 102, 0.1);
+  border-left: 4px solid #ff0066;
+  border-radius: 5px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+th,
+td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #2a3555;
+}
+th {
+  color: #00ff88;
+  font-weight: bold;
+  background: rgba(0, 255, 136, 0.1);
+}
+tr:hover {
+  background: rgba(0, 255, 136, 0.05);
+}
+.chain-id {
+  color: #ff00ff;
+  font-weight: bold;
+}
+.matrix-row.breached {
+  background: rgba(255, 0, 102, 0.15);
+}
+.matrix-row.clean {
+  background: rgba(0, 255, 136, 0.05);
+}
+.matrix-status {
+  font-weight: bold;
+  color: #ff0066;
+}
+.matrix-row.clean .matrix-status {
+  color: #00ff88;
+}
+.highlight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+}
+.highlight-card {
+  padding: 20px;
+  border-radius: 10px;
+  border: 2px solid;
+  text-align: center;
+}
+.highlight-card.critical {
+  border-color: #ff0066;
+  background: rgba(255, 0, 102, 0.1);
+}
+.highlight-card.high {
+  border-color: #ff7b00;
+  background: rgba(255, 123, 0, 0.1);
+}
+.highlight-card.medium {
+  border-color: #f6c344;
+  background: rgba(246, 195, 68, 0.1);
+}
+.highlight-card.low {
+  border-color: #7a8ea0;
+  background: rgba(122, 142, 160, 0.1);
+}
+.card-emoji {
+  font-size: 3em;
+  margin-bottom: 10px;
+}
+.card-title {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #00ff88;
+}
+.card-subtitle {
+  font-size: 0.9em;
+  color: #c4ffe8;
+}
+.ban-text {
+  font-size: 1.1em;
+  padding: 15px;
+  background: rgba(255, 0, 255, 0.1);
+  border-left: 4px solid #ff00ff;
+  border-radius: 5px;
+}
+.timeline-list {
+  list-style: none;
+  padding-left: 0;
+}
+.timeline-item {
+  padding: 10px;
+  margin: 5px 0;
+  border-left: 3px solid #00ff88;
+  padding-left: 15px;
+  background: rgba(0, 255, 136, 0.05);
+  border-radius: 3px;
+}
+.timeline-item.critical {
+  border-left-color: #ff0066;
+}
+.timeline-item.high {
+  border-left-color: #ff7b00;
+}
+.timeline-time {
+  display: inline-block;
+  width: 90px;
+  color: #ff00ff;
+  font-weight: bold;
+}
+.timeline-action {
+  display: inline-block;
+  width: 120px;
+  color: #00ff88;
+}
+.finding-row.critical {
+  border-left: 3px solid #ff0066;
+}
+.finding-row.high {
+  border-left: 3px solid #ff7b00;
+}
+.finding-row.medium {
+  border-left: 3px solid #f6c344;
+}
+.finding-row.low {
+  border-left: 3px solid #7a8ea0;
+}
+.sev-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 0.85em;
+  font-weight: bold;
+}
+.sev-badge.critical {
+  background: #ff0066;
+  color: #fff;
+}
+.sev-badge.high {
+  background: #ff7b00;
+  color: #fff;
+}
+.sev-badge.medium {
+  background: #f6c344;
+  color: #000;
+}
+.sev-badge.low {
+  background: #7a8ea0;
+  color: #fff;
+}
