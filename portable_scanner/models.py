@@ -56,6 +56,19 @@ class Finding:
     description: str
     evidence: Dict[str, str] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        if self.timestamp.tzinfo is None:
+            self.timestamp = self.timestamp.replace(tzinfo=timezone.utc)
+        else:
+            self.timestamp = self.timestamp.astimezone(timezone.utc)
+        if not self.evidence:
+            self.evidence = {"location": self.location, "category": self.category.value}
+        else:
+            normalized = dict(self.evidence)
+            normalized.setdefault("location", self.location)
+            normalized.setdefault("category", self.category.value)
+            self.evidence = normalized
+
     def to_dict(self) -> Dict[str, str]:
         return {
             "severity": self.severity.value,
