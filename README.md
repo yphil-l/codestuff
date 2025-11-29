@@ -91,7 +91,23 @@ Each category below is selectable in the GUI sidebar and covered by an independe
 - **Why**: Cheats and cleaners often reside in temp or user downloads.
 - **Interpretation**: HIGH when suspicious filenames exist within lookback; LOW when clean.
 
+### 3.14 Browser Activity
+- **What**: Chrome `%LOCALAPPDATA%\Google\Chrome\User Data\*\History` and Firefox `%APPDATA%\Mozilla\Firefox\Profiles\*\places.sqlite`/`downloads.sqlite` copied for read-only SQLite queries.
+- **Why**: Identifies suspicious browsing and downloads that coincide with the review window, even when artifacts are locked in-use.
+- **Interpretation**: HIGH when URLs or filenames match cheat indicators inside the session; otherwise suppressed.
+
+### 3.15 Windows Error Reporting
+- **What**: `C:\Users\*\AppData\Local\Microsoft\Windows\WER\{ReportArchive,ReportQueue}` parsed for `Report.wer` crash metadata.
+- **Why**: Cheat loaders and unsigned modules frequently crash under scrutiny, leaving canonical traces in WER buckets.
+- **Interpretation**: HIGH when AppPath/module references cheat loaders or user-writable paths; MEDIUM when unsigned modules are involved.
+
+### 3.16 DNS & Network Cache
+- **What**: `ipconfig /displaydns` output plus `arp -a` neighbor cache parsed into structured entries.
+- **Why**: Recent DNS lookups and peers reveal command-and-control staging hosts or evidence of cache flushing.
+- **Interpretation**: HIGH for domains/IPs on the cheat/C2 list, MEDIUM for unexplained remote ARP peers, LOW when caches appear forcibly cleared.
+
 ## 4. Severity Guide
+
 | Severity  | Meaning | Examples |
 |-----------|---------|----------|
 | **CRITICAL** | Immediate evidence of tampering or active cheat | Log clearing (1102/104), USN delete (142), locked BitLocker volume, Prefetch disabled |
@@ -100,6 +116,7 @@ Each category below is selectable in the GUI sidebar and covered by an independe
 | **LOW** | Contextual or baseline information | Normal logon event, absence of shadow copies |
 
 ## 5. Interpreting Findings
+
 1. **Correlate timestamps** – the timeline view ties Event Logs, Prefetch, ActivitiesCache, and USN entries to reconstruct intent.
 2. **Look for gaps** – Prefetch entries without UserAssist/BAM or vice versa suggest deliberate cleanup.
 3. **Cross-reference artifacts** – e.g., Recycle Bin + USN + Recent link showing the same executable equals strong attribution.

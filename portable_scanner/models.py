@@ -40,6 +40,9 @@ class ArtifactCategory(str, enum.Enum):
     PROCESSES = "Process & Memory"
     ENCRYPTED_VOLUMES = "Encrypted Volumes"
     SPECIAL_LOCATIONS = "Special Artifact Locations"
+    BROWSER = "Browser Activity"
+    WER = "Windows Error Reporting"
+    NETWORK_CACHE = "DNS & Network Cache"
 
     @property
     def short_name(self) -> str:
