@@ -40,6 +40,7 @@ class ArtifactCategory(str, enum.Enum):
     PROCESSES = "Process & Memory"
     ENCRYPTED_VOLUMES = "Encrypted Volumes"
     SPECIAL_LOCATIONS = "Special Artifact Locations"
+    BYPASS_ANALYSIS = "Bypass & Evasion"
 
     @property
     def short_name(self) -> str:
