@@ -37,6 +37,8 @@ class ForensicScannerApp(tk.Tk):
         self._findings: list[Finding] = []
         self._scan_thread: threading.Thread | None = None
         self._running = False
+        self._summary: ScanSummary | None = None
+        self._correlation_rendered = False
 
         self._build_styles()
         self._build_layout()
@@ -99,14 +101,34 @@ class ForensicScannerApp(tk.Tk):
 
         right_panel = tk.Frame(self, bg="#050710")
         right_panel.grid(row=1, column=2, sticky="ns", padx=(6, 12), pady=6)
+        
+        # Risk gauge section
+        gauge_frame = tk.Frame(right_panel, bg="#080b1a", bd=2, relief=tk.GROOVE)
+        gauge_frame.pack(fill=tk.X, pady=(0, 10))
+        tk.Label(gauge_frame, text="Risk Score", fg="#ff00ff", bg="#080b1a", font=("Consolas", 12, "bold")).pack(anchor="w", padx=10, pady=(5, 0))
+        self.risk_label = tk.Label(gauge_frame, text="0/100", fg="#00ff88", bg="#080b1a", font=("Consolas", 24, "bold"))
+        self.risk_label.pack(pady=10)
+        self.risk_status = tk.Label(gauge_frame, text="LOW RISK", fg="#00ff88", bg="#080b1a", font=("Consolas", 10))
+        self.risk_status.pack(pady=(0, 10))
+        
+        # Correlation panel
+        corr_frame = tk.Frame(right_panel, bg="#080b1a", bd=2, relief=tk.GROOVE)
+        corr_frame.pack(fill=tk.X, pady=(0, 10))
+        tk.Label(corr_frame, text="Correlation", fg="#ff00ff", bg="#080b1a", font=("Consolas", 11, "bold")).pack(anchor="w", padx=10, pady=(5, 0))
+        self.corr_text = scrolledtext.ScrolledText(corr_frame, fg="#c4ffe8", bg="#030511", font=("Consolas", 9), height=8, wrap=tk.WORD)
+        self.corr_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Findings tree
         tk.Label(right_panel, text="Findings", fg="#ff00ff", bg="#050710", font=("Consolas", 12, "bold")).pack(anchor="w")
-        columns = ("severity", "title", "location", "time")
-        self.tree = ttk.Treeview(right_panel, columns=columns, show="headings", height=22)
+        columns = ("id", "severity", "title", "time")
+        self.tree = ttk.Treeview(right_panel, columns=columns, show="headings", height=15)
         for col in columns:
-            self.tree.heading(col, text=col.title())
-            self.tree.column(col, anchor="w", width=180 if col != "severity" else 100)
+            self.tree.heading(col, text=col.upper())
+            self.tree.column(col, anchor="w", width=100 if col in ("id", "severity") else 200 if col == "title" else 120)
         self.tree.pack(fill=tk.BOTH, expand=True)
         self.tree.bind("<Double-1>", self._show_finding_detail)
+
+        self._reset_correlation_panel()
 
         bottom = tk.Frame(self, bg="#050710")
         bottom.grid(row=2, column=0, columnspan=3, sticky="ew", padx=12, pady=(0, 12))
@@ -143,8 +165,11 @@ class ForensicScannerApp(tk.Tk):
         self.status_var.set("Scanning...")
         self.progress.configure(value=0)
         self._findings.clear()
+        self._correlation_rendered = False
+        self._summary = None
         self.tree.delete(*self.tree.get_children())
         self.output.delete("1.0", tk.END)
+        self._reset_correlation_panel()
         context = ScanContext(
             options=self.options,
             started_at=datetime.now(timezone.utc),
@@ -212,14 +237,15 @@ class ForensicScannerApp(tk.Tk):
             while True:
                 finding = self.finding_queue.get_nowait()
                 self._findings.append(finding)
+                gun = "💥" if finding.smoking_gun else ""
                 self.tree.insert(
                     "",
                     tk.END,
                     values=(
+                        finding.correlation_id or "",
                         finding.severity.value,
-                        finding.title,
-                        finding.location,
-                        finding.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                        gun + finding.title,
+                        finding.timestamp.strftime("%H:%M:%S"),
                     ),
                 )
                 self.status_var.set(self._build_status_summary())
@@ -231,6 +257,7 @@ class ForensicScannerApp(tk.Tk):
                 self.progress.configure(value=progress * 100)
                 if progress >= 0.99 and not self._running:
                     self.status_indicator.configure(text="● READY", fg="#00ff88")
+                    self._update_correlation_panel()
         except queue.Empty:
             pass
         self.after(100, self._drain_queues)
@@ -240,6 +267,68 @@ class ForensicScannerApp(tk.Tk):
         for finding in self._findings:
             counts[finding.severity] += 1
         return " | ".join(f"{severity.value}: {counts[severity]}" for severity in Severity)
+
+    def _reset_correlation_panel(self) -> None:
+        self._set_risk_display(0, "Awaiting Scan")
+        self.corr_text.config(state=tk.NORMAL)
+        self.corr_text.delete("1.0", tk.END)
+        self.corr_text.insert(tk.END, "Correlation insights will appear once a scan completes.")
+        self.corr_text.config(state=tk.DISABLED)
+
+    def _update_correlation_panel(self) -> None:
+        if self._running or self._correlation_rendered is True:
+            return
+        summary = self._summary
+        if not summary or not summary.correlation:
+            self._reset_correlation_panel()
+            self._correlation_rendered = True
+            return
+        corr = summary.correlation
+        self._set_risk_display(corr.risk_score, self._risk_label(corr.risk_score))
+        lines = [
+            f"Risk Score: {corr.risk_score}/100",
+            f"Bypass Score: {corr.bypass_score}/40",
+            "",
+        ]
+        if corr.clearing_patterns:
+            lines.append("Clearing Patterns:")
+            lines.extend(f" - {pattern}" for pattern in corr.clearing_patterns)
+        else:
+            lines.append("No clearing cascades detected.")
+        lines.append("")
+        lines.append(corr.ban_evasion_summary)
+        if corr.highlight_cards:
+            lines.append(f"Game highlights: {len(corr.highlight_cards)}")
+        self.corr_text.config(state=tk.NORMAL)
+        self.corr_text.delete("1.0", tk.END)
+        self.corr_text.insert(tk.END, "\n".join(lines))
+        self.corr_text.config(state=tk.DISABLED)
+        self._correlation_rendered = True
+
+    def _set_risk_display(self, score: int, label: str) -> None:
+        color = self._risk_color(score)
+        self.risk_label.config(text=f"{score}/100", fg=color)
+        self.risk_status.config(text=label, fg=color)
+
+    def _risk_color(self, score: int) -> str:
+        if score >= 80:
+            return "#ff0066"
+        if score >= 60:
+            return "#ff7b00"
+        if score >= 40:
+            return "#f6c344"
+        return "#00ff88"
+
+    def _risk_label(self, score: int) -> str:
+        if score >= 80:
+            return "CRITICAL"
+        if score >= 60:
+            return "HIGH"
+        if score >= 40:
+            return "ELEVATED"
+        if score >= 20:
+            return "MODERATE"
+        return "LOW"
 
     def _show_finding_detail(self, _event=None) -> None:
         selected = self.tree.selection()

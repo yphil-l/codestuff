@@ -3,7 +3,10 @@ from __future__ import annotations
 import enum
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .correlation import CorrelationResult
 
 
 class Severity(str, enum.Enum):
@@ -58,6 +61,10 @@ class Finding:
     timestamp: datetime
     description: str
     evidence: Dict[str, str] = field(default_factory=dict)
+    correlation_id: Optional[str] = None
+    confidence: float = 0.5
+    smoking_gun: bool = False
+    tags: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, str]:
         return {
@@ -68,6 +75,10 @@ class Finding:
             "timestamp": self.timestamp.replace(tzinfo=timezone.utc).isoformat(),
             "description": self.description,
             "evidence": self.evidence,
+            "correlation_id": self.correlation_id,
+            "confidence": self.confidence,
+            "smoking_gun": self.smoking_gun,
+            "tags": self.tags,
         }
 
 
@@ -102,6 +113,7 @@ class SystemInfo:
 @dataclass
 class ScanSummary:
     findings: List[Finding] = field(default_factory=list)
+    correlation: Optional["CorrelationResult"] = None
 
     def severity_buckets(self) -> Dict[Severity, int]:
         buckets: Dict[Severity, int] = {severity: 0 for severity in Severity.ordered()}
